@@ -7,6 +7,12 @@ const RedisStore = require('connect-redis')(session);
 require('dotenv').config();
 const secretKey = process.env.SECRET || 'secret-key';
 
+// Hardcoded user db
+const users = [
+  { id: 1, username: 'foo', password: 'bar' },
+  { id: 2, username: 'john', password: 'doe' },
+];
+
 const app = express();
 
 // Set view engine
@@ -33,15 +39,18 @@ app.use(passport.session());
 
 // Define local auth strategy
 const localStrategy = new LocalStrategy((username, password, done)=>{
-    // In prod, this will be a db call to verify credentials
-  if( username === 'foo' && password === 'bar'){
-    return done(null, { id: 1, username: 'foo'});
+  const user = users.find( user => user.username === username &&
+    user.password === password);
+  if (user){
+    return done(null, user);
   }else{
     return done(null, false)
   }
 })
 passport.use(localStrategy);
 
+// Return the single parameter from user object 
+// which we want to store in req.session
 passport.serializeUser((user, done)=>{
   done(null, user.id);
 })
@@ -50,10 +59,7 @@ passport.deserializeUser((id, done)=>{
   // Do a db call to look up the user object using id
   // Here, we are hard coding it and call done method with 
   // entire user object
-  const user = {
-    id: 1,
-    username : foo
-  }
+  const user = users.find(user => user.id === id);
   done(null, user);
 })
 
