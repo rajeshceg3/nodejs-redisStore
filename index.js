@@ -4,6 +4,8 @@ const redis = require('redis');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const RedisStore = require('connect-redis')(session);
+require('dotenv').config();
+const secretKey = process.env.SECRET || 'secret-key';
 
 const app = express();
 
@@ -13,7 +15,7 @@ const redisClient = redis.createClient();
 // Link express-session with redis store
 app.use(session({
   store: new RedisStore({client: redisClient}),
-  secret: 'your-secret-key',
+  secret: secretKey,
   resave: false,
   saveUninitialized: false,
   cookie: {
