@@ -9,6 +9,9 @@ const secretKey = process.env.SECRET || 'secret-key';
 
 const app = express();
 
+// Set view engine
+app.set('view engine', 'ejs');
+
 // Create Redis client
 const redisClient = redis.createClient();
 
@@ -38,18 +41,22 @@ const localStrategy = new LocalStrategy((username, password, done)=>{
   }
 })
 passport.use(localStrategy);
-/*
-// Serialize the user for the session
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
 
-// Deserialize the user for the session
-passport.deserializeUser((id, done) => {
-  // Lookup the user in the database by id
-  const user = { id: 1, username: 'john' };
+passport.serializeUser((user, done)=>{
+  done(null, user.id);
+})
+
+passport.deserializeUser((id, done)=>{
+  // Do a db call to look up the user object using id
+  // Here, we are hard coding it and call done method with 
+  // entire user object
+  const user = {
+    id: 1,
+    username : foo
+  }
   done(null, user);
-});*/
+})
+
 
 app.get('/login', (req, res) => {
   res.render('login');
