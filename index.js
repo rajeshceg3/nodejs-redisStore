@@ -4,14 +4,23 @@ const redis = require('redis');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const RedisStore = require('connect-redis')(session);
+const bcrypt = require('bcrypt');
 require('dotenv').config();
-const secretKey = process.env.SECRET || 'secret-key';
-const REDIS_PORT = process.env.REDIS_PORT || 6379;
 
-// Hardcoded user db
+// Secret Key validation
+const secretKey = process.env.SECRET;
+if (!secretKey) {
+  console.error('FATAL ERROR: SECRET environment variable is not set.');
+  process.exit(1);
+}
+
+const REDIS_PORT = process.env.REDIS_PORT || 6379;
+const saltRounds = 10; // For bcrypt
+
+// Hardcoded user db - IN A REAL APP, LOAD FROM DB AND HASH PASSWORDS ON SIGNUP
 const users = [
-  { id: 1, username: 'foo', password: 'bar' },
-  { id: 2, username: 'john', password: 'doe' },
+  { id: 1, username: 'foo', passwordHash: bcrypt.hashSync('bar', saltRounds) },
+  { id: 2, username: 'john', passwordHash: bcrypt.hashSync('doe', saltRounds) },
 ];
 
 const app = express();
@@ -21,8 +30,22 @@ app.set('view engine', 'ejs');
 
 // Create Redis client
 const redisClient = redis.createClient({
-  host: 'localhost',
-  port: REDIS_PORT,
+  // host: 'localhost', // Default host
+  // port: REDIS_PORT,  // Default port
+  url: `redis://localhost:${REDIS_PORT}`, // More explicit connection string
+  legacyMode: true, // Required for connect-redis v6 with redis v4
+});
+
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+  // Optional: Add logic to exit or attempt reconnection based on error type or app needs
+});
+
+// Attempt to connect to Redis
+redisClient.connect().catch(err => {
+  console.error('Failed to connect to Redis:', err);
+  // Depending on the app's needs, you might want to exit here if Redis is critical
+  // process.exit(1);
 });
 
 // Link express-session with redis store
@@ -44,17 +67,25 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Define local auth strategy
-const localStrategy = new LocalStrategy((username, password, done) => {
-  const user = users.find(
-    (user) => user.username === username && user.password === password
-  );
-  if (user) {
-    return done(null, user);
-  } else {
-    return done(null, false);
+passport.use(new LocalStrategy(async (username, password, done) => {
+  const user = users.find(u => u.username === username);
+  if (!user) {
+    return done(null, false, { message: 'Incorrect username.' });
   }
-});
-passport.use(localStrategy);
+
+  try {
+    // Compare submitted password with stored hash
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) {
+      return done(null, false, { message: 'Incorrect password.' });
+    }
+    // Return user object (without passwordHash)
+    const { passwordHash, ...userWithoutPasswordHash } = user;
+    return done(null, userWithoutPasswordHash);
+  } catch (err) {
+    return done(err);
+  }
+}));
 
 // Return the single parameter from user object
 // which we want to store in req.session
@@ -63,11 +94,15 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser((id, done) => {
-  // Do a db call to look up the user object using id
-  // Here, we are hard coding it and call done method with
-  // entire user object
-  const user = users.find((user) => user.id === id);
-  done(null, user);
+  const user = users.find((u) => u.id === id);
+  if (user) {
+    // Ensure passwordHash is not included
+    const { passwordHash, ...userWithoutPasswordHash } = user;
+    done(null, userWithoutPasswordHash);
+  } else {
+    // It's good practice to handle the case where the user is not found
+    done(new Error('User not found in deserializeUser'));
+  }
 });
 
 app.get('/login', (req, res) => {
