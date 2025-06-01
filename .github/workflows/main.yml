@@ -1,0 +1,58 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ] # Or your default branch, e.g., master
+  pull_request:
+    branches: [ main ] # Or your default branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x] # Specify Node.js versions to test against
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # Cache npm dependencies
+
+    - name: Install dependencies
+      run: npm ci # Use 'npm ci' for cleaner installs in CI
+
+    - name: Lint code (Placeholder)
+      run: echo "Linting step: No linter configured yet. Add your lint command here." # e.g., npm run lint
+
+    - name: Run tests (Placeholder)
+      run: echo "Testing step: No tests configured yet. Add your test command here." # e.g., npm test
+
+    # Add a step to check if the application can start, as a basic smoke test
+    # This requires a .env file or setting env vars directly in the workflow for the app to run
+    # For simplicity, we'll just check if `npm start` can run for a few seconds without crashing
+    # This is a very basic check and might need adjustment if the app exits immediately on success.
+    - name: Basic application start test
+      run: |
+        echo "SECRET=testsecretfordummycicd" > .env
+        echo "REDIS_PORT=6379" >> .env
+        echo "REDIS_HOST=localhost" >> .env
+        npm start &
+        APP_PID=$!
+        sleep 5 # Let the app run for a few seconds
+        # Check if the process is still running
+        if ps -p $APP_PID > /dev/null; then
+          echo "Application started successfully."
+          kill $APP_PID
+        else
+          echo "Application failed to start or crashed."
+          # Optionally, you can try to get logs from the app if it wrote to a file
+          exit 1
+        fi
+      # Note: This basic start test assumes Redis is available on localhost:6379 in the GitHub Actions runner environment.
+      # GitHub Actions runners often have Redis pre-installed. If not, a service container for Redis would be needed.
