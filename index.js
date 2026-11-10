@@ -28,6 +28,9 @@ const app = express();
 // Set view engine
 app.set('view engine', 'ejs');
 
+// Parse login form posts; passport-local reads req.body
+app.use(express.urlencoded({ extended: false }));
+
 // Create Redis client
 const redisClient = redis.createClient({
   // host: 'localhost', // Default host
@@ -56,7 +59,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true, // for HTTPS
+      secure: false, // plain local HTTP; flip to true only behind real HTTPS
       maxAge: 1000 * 60 * 60 * 1, // 1 hour - input taken in ms
     },
   })

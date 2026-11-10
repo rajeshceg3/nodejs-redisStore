@@ -164,3 +164,13 @@ Open your web browser and navigate to:
 *   More robust error handling and logging.
 *   Adding unit and integration tests.
 *   Implementing CSRF and XSS protections.
+
+## Verify
+
+```
+node .cursor/skills/verify-redis-store/verify.cjs
+```
+
+Spawns an isolated in-memory Redis and the app, exercises login success,
+failure and session persistence with a real cookie jar, and writes an
+evidence report. See `.cursor/skills/verify-redis-store/`.
